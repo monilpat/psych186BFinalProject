@@ -1,22 +1,45 @@
-digitDatasetPath = fullfile('/Users/Monil/Documents/MATLAB');
-imds = imageDatastore(digitDatasetPath, ...
-    'IncludeSubFolders', true, 'LabelSource', 'foldernames');
-
-imshow(imds.Files{1});
+net = alexnet; 
+directory = pwd; 
+% Load and explore image data
+imds = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
+imgs = readall(imds);
+inputSize = net.Layers(1).InputSize;
 
 labelCount = countEachLabel(imds);
-img = readimage(imds,1);
-size(img)
-numTrainFiles = 1;
+numTrainFiles = 9;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
+augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain);
+augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation);
 
+% Define network architecture
 layers = [
-    imageInputLayer([28 28 1])
+    % Specify the image size & channel size (grayscale or RGB)
+    % 1 = grayscale 3 = RGB 
+    % An image input layer inputs images to a network and applies data normalization.
+    imageInputLayer([227 227 3])
     
+    % filterSize = 3 = height & width of filters the training function uses
+    % while scanning images
+    % numFilters = 8 = # of neurons that connect to the same region of the
+    % input (Determines feature maps)
+    % Use the 'Padding' name-value pair to add padding to the input feature 
+    % map. For a convolutional layer with a default stride of 1, 'same' 
+    % padding ensures that the spatial output size is the same as the input size. 
     convolution2dLayer(3,8,'Padding','same')
+    
+    % atch normalization layers normalize the activations and gradients 
+    % propagating through a network, making network training an easier 
+    % optimization problem. Use batch normalization layers between convolutional 
+    % layers and nonlinearities, such as ReLU layers, to speed up network 
+    % training and reduce the sensitivity to network initialization.
     batchNormalizationLayer
+    % Activation Function rectified linear unit (ReLU
     reluLayer
     
+    % down-sampling operation that reduces the spatial size of the feature 
+    % map and removes redundant spatial information. Down-sampling makes it
+    % possible to increase the number of filters in deeper convolutional 
+    % layers without increasing the required amount of computation per layer.
     maxPooling2dLayer(2,'Stride',2)
     
     convolution2dLayer(3,16,'Padding','same')
@@ -29,16 +52,38 @@ layers = [
     batchNormalizationLayer
     reluLayer
     
-    fullyConnectedLayer(10)
+    % a fully connected layer is a layer in which the neurons connect to
+    % all the neurons in the preceding layer.
+    % This layer combines all the features learned by the previous layers 
+    % across the image to identify the larger patterns. The last fully 
+    % connected layer combines the features to classify the images.
+    fullyConnectedLayer(21)
+    % The softmax activation function normalizes the output of the fully 
+    % connected layer. The output of the softmax layer consists of positive 
+    % numbers that sum to one, which can then be used as classification
+    % probabilities by the classification layer. 
     softmaxLayer
+    %  This layer uses the probabilities returned by the softmax activation
+    % function for each input to assign the input to one of the mutually 
+    % exclusive classes and compute the loss.
     classificationLayer];
+
+% Specify Training Options
+% An epoch is a full training cycle on the entire training data set.
 options = trainingOptions('sgdm', ...
     'InitialLearnRate',0.01, ...
-    'MaxEpochs',4, ...
+    'MaxEpochs',10, ...
     'Shuffle','every-epoch', ...
-    'ValidationData',imdsValidation, ...
+    'ValidationData',augimdsValidation, ...
     'ValidationFrequency',30, ...
     'Verbose',false, ...
     'Plots','training-progress');
 
-net = trainNetwork(imdsTrain,layers,options);
+% Train network
+net = trainNetwork(augimdsTrain,layers,options);
+
+% Predict the labels of new data and calculate the classification accuracy
+YPred = classify(net,augimdsValidation);
+YValidation = imdsValidation.Labels;
+
+accuracy = sum(YPred == YValidation)/numel(YValidation)
