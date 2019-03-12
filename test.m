@@ -1,22 +1,22 @@
-net = alexnet; 
 directory = pwd; 
 % Load and explore image data
 imds = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
 imgs = readall(imds);
-inputSize = net.Layers(1).InputSize;
+
+inputSize = [1000 1000];
 
 labelCount = countEachLabel(imds);
-numTrainFiles = 9;
+numTrainFiles = 2000;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
-augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain);
-augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation);
+augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb');
+augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation, 'ColorPreprocessing','gray2rgb');
 
 % Define network architecture
 layers = [
     % Specify the image size & channel size (grayscale or RGB)
     % 1 = grayscale 3 = RGB 
     % An image input layer inputs images to a network and applies data normalization.
-    imageInputLayer([227 227 3])
+    imageInputLayer([1000 1000 3])
     
     % filterSize = 3 = height & width of filters the training function uses
     % while scanning images
@@ -57,7 +57,7 @@ layers = [
     % This layer combines all the features learned by the previous layers 
     % across the image to identify the larger patterns. The last fully 
     % connected layer combines the features to classify the images.
-    fullyConnectedLayer(21)
+    fullyConnectedLayer(2)
     % The softmax activation function normalizes the output of the fully 
     % connected layer. The output of the softmax layer consists of positive 
     % numbers that sum to one, which can then be used as classification
@@ -72,7 +72,7 @@ layers = [
 % An epoch is a full training cycle on the entire training data set.
 options = trainingOptions('sgdm', ...
     'InitialLearnRate',0.01, ...
-    'MaxEpochs',10, ...
+    'MaxEpochs',4, ...
     'Shuffle','every-epoch', ...
     'ValidationData',augimdsValidation, ...
     'ValidationFrequency',30, ...
