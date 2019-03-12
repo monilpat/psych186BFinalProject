@@ -1,13 +1,35 @@
 directory = pwd; 
 % Load and explore image data
 imds = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
-imgs = readall(imds);
 
-inputSize = [1000 1000];
+inputSize = [227 227];
 
 labelCount = countEachLabel(imds);
-numTrainFiles = 100;
+numTrainFiles = 300;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
+
+% Image Complement
+while hasdata(imdsTrain)
+    [img, info] = read(imdsTrain);
+    img = imcomplement(img);
+    % Write to the location 
+    imwrite(img,info.Filename);
+end
+
+imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
+
+% Image Rotation, Reflection, and Reflection 
+
+rotationAugmenter = imageDataAugmenter('RandRotation',[-20,20]);
+reflectionXAugmenter = imageDataAugmenter('RandXReflection', true);
+reflectionYAugmenter = imageDataAugmenter('RandYReflection', true);
+reflectionXYAugmenter = imageDataAugmenter('RandXReflection', true, 'RandYReflection', true);
+translationXAugmenter = imageDataAugmenter('RandXTranslation',[-3 3]);
+translationYAugmenter = imageDataAugmenter('RandYTranslation',[-3 3]);
+translationXYAugmenter = imageDataAugmenter('RandXTranslation',[-3 3],'RandYTranslation',[-3 3]);
+
+% augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb', 'DataAugmentation', rotationAugmenter);
+
 augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb');
 augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation, 'ColorPreprocessing','gray2rgb');
 
@@ -16,7 +38,7 @@ layers = [
     % Specify the image size & channel size (grayscale or RGB)
     % 1 = grayscale 3 = RGB 
     % An image input layer inputs images to a network and applies data normalization.
-    imageInputLayer([1000 1000 3])
+    imageInputLayer([227 227 3])
     
     % filterSize = 3 = height & width of filters the training function uses
     % while scanning images
@@ -87,3 +109,14 @@ YPred = classify(net,augimdsValidation);
 YValidation = imdsValidation.Labels;
 
 accuracy = sum(YPred == YValidation)/numel(YValidation)
+
+% Reset images to normal
+
+while hasdata(imdsTrain)
+    [img, info] = read(imdsTrain);
+    img = imcomplement(img);
+    % Write to the location 
+    imwrite(img,info.Filename);
+end
+
+imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
