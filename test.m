@@ -6,7 +6,7 @@ imgs = readall(imds);
 inputSize = [1000 1000];
 
 labelCount = countEachLabel(imds);
-numTrainFiles = 2000;
+numTrainFiles = 100;
 [imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
 augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb');
 augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation, 'ColorPreprocessing','gray2rgb');
