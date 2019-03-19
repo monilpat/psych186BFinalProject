@@ -3,23 +3,21 @@ directory = pwd;
 imds = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
 
 inputSize = [227 227];
-
 labelCount = countEachLabel(imds);
-numTrainFiles = 300;
-[imdsTrain,imdsValidation] = splitEachLabel(imds,numTrainFiles,'randomize');
+[imdsTrain,imdsValidation] = splitEachLabel(shuffle(imds),4);
 
 % Image Complement
-while hasdata(imdsTrain)
-    [img, info] = read(imdsTrain);
-    img = imcomplement(img);
-    % Write to the location 
-    imwrite(img,info.Filename);
-end
+% while hasdata(imdsTrain)
+%     [img, info] = read(imdsTrain);
+%     img = imcomplement(img);
+%     Write to the location 
+%     imwrite(img,info.Filename);
+% end
 
-imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
+% imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
 
 % Image Rotation, Reflection, and Reflection 
-
+all_Augmenter = imageDataAugmenter('RandRotation',[-60,60],'RandXReflection', true, 'RandXTranslation',[-60 60]);
 rotationAugmenter = imageDataAugmenter('RandRotation',[-20,20]);
 reflectionXAugmenter = imageDataAugmenter('RandXReflection', true);
 reflectionYAugmenter = imageDataAugmenter('RandYReflection', true);
@@ -28,8 +26,7 @@ translationXAugmenter = imageDataAugmenter('RandXTranslation',[-3 3]);
 translationYAugmenter = imageDataAugmenter('RandYTranslation',[-3 3]);
 translationXYAugmenter = imageDataAugmenter('RandXTranslation',[-3 3],'RandYTranslation',[-3 3]);
 
-% augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb', 'DataAugmentation', rotationAugmenter);
-
+% augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','rgb2gray');
 augimdsTrain = augmentedImageDatastore(inputSize(1:2),imdsTrain,'ColorPreprocessing','gray2rgb');
 augimdsValidation = augmentedImageDatastore(inputSize(1:2),imdsValidation, 'ColorPreprocessing','gray2rgb');
 
@@ -38,7 +35,7 @@ layers = [
     % Specify the image size & channel size (grayscale or RGB)
     % 1 = grayscale 3 = RGB 
     % An image input layer inputs images to a network and applies data normalization.
-    imageInputLayer([227 227 3])
+    imageInputLayer([227 227 3],'DataAugmentation','randcrop')
     
     % filterSize = 3 = height & width of filters the training function uses
     % while scanning images
@@ -49,7 +46,7 @@ layers = [
     % padding ensures that the spatial output size is the same as the input size. 
     convolution2dLayer(3,8,'Padding','same')
     
-    % atch normalization layers normalize the activations and gradients 
+    % Batch normalization layers normalize the activations and gradients 
     % propagating through a network, making network training an easier 
     % optimization problem. Use batch normalization layers between convolutional 
     % layers and nonlinearities, such as ReLU layers, to speed up network 
@@ -94,29 +91,31 @@ layers = [
 % An epoch is a full training cycle on the entire training data set.
 options = trainingOptions('sgdm', ...
     'InitialLearnRate',0.01, ...
-    'MaxEpochs',4, ...
+    'MaxEpochs',2, ...
     'Shuffle','every-epoch', ...
     'ValidationData',augimdsValidation, ...
     'ValidationFrequency',30, ...
-    'Verbose',false, ...
-    'Plots','training-progress');
-
+    'Verbose',false);
 % Train network
 net = trainNetwork(augimdsTrain,layers,options);
 
-% Predict the labels of new data and calculate the classification accuracy
-YPred = classify(net,augimdsValidation);
-YValidation = imdsValidation.Labels;
+% Training data
+YPred_Train = classify(net,augimdsTrain);
+YTrain = imdsTrain.Labels;
+training_accuracy = sum(YPred_Train == YTrain)/numel(YTrain)
 
-accuracy = sum(YPred == YValidation)/numel(YValidation)
+% Predict the labels of new data and calculate the classification accuracy
+YPred_Validation = classify(net,augimdsValidation);
+YValidation = imdsValidation.Labels;
+validation_accuracy = sum(YPred_Validation == YValidation)/numel(YValidation)
 
 % Reset images to normal
 
-while hasdata(imdsTrain)
-    [img, info] = read(imdsTrain);
-    img = imcomplement(img);
-    % Write to the location 
-    imwrite(img,info.Filename);
-end
+% while hasdata(imdsTrain)
+%     [img, info] = read(imdsTrain);
+%     img = imcomplement(img);
+%     % Write to the location 
+%     imwrite(img,info.Filename);
+% end
 
 imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
