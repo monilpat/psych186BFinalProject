@@ -4,7 +4,7 @@ imds = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg'
 
 inputSize = [227 227];
 labelCount = countEachLabel(imds);
-[imdsTrain,imdsValidation] = splitEachLabel(shuffle(imds),4);
+[imdsTrain,imdsValidation] = splitEachLabel(shuffle(imds),.8, 'randomized');
 
 % Image Complement
 % while hasdata(imdsTrain)
@@ -13,7 +13,6 @@ labelCount = countEachLabel(imds);
 %     Write to the location 
 %     imwrite(img,info.Filename);
 % end
-
 % imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
 
 % Image Rotation, Reflection, and Reflection 
@@ -35,7 +34,8 @@ layers = [
     % Specify the image size & channel size (grayscale or RGB)
     % 1 = grayscale 3 = RGB 
     % An image input layer inputs images to a network and applies data normalization.
-    imageInputLayer([227 227 3],'DataAugmentation','randcrop')
+    %     imageInputLayer([227 227 3],'DataAugmentation','randcrop')
+    imageInputLayer([227 227 3])
     
     % filterSize = 3 = height & width of filters the training function uses
     % while scanning images
@@ -91,23 +91,27 @@ layers = [
 % An epoch is a full training cycle on the entire training data set.
 options = trainingOptions('sgdm', ...
     'InitialLearnRate',0.01, ...
-    'MaxEpochs',2, ...
+    'MaxEpochs',3, ...
     'Shuffle','every-epoch', ...
     'ValidationData',augimdsValidation, ...
     'ValidationFrequency',30, ...
     'Verbose',false);
 % Train network
-net = trainNetwork(augimdsTrain,layers,options);
+net = trainNetwork(shuffle(augimdsTrain),layers,options);
 
-% Training data
+% Training 
 YPred_Train = classify(net,augimdsTrain);
 YTrain = imdsTrain.Labels;
 training_accuracy = sum(YPred_Train == YTrain)/numel(YTrain)
+cat_training_accuracy = sum(YPred_Train == 'Cat')/numel(YTrain)
+dog_training_accuracy = sum(YPred_Train == 'Dog')/numel(YTrain)
 
-% Predict the labels of new data and calculate the classification accuracy
+% Validation
 YPred_Validation = classify(net,augimdsValidation);
 YValidation = imdsValidation.Labels;
 validation_accuracy = sum(YPred_Validation == YValidation)/numel(YValidation)
+cat_validation_accuracy = sum(YPred_Validation == 'Cat')/numel(YValidation)
+dog_validation_accuracy = sum(YPred_Validation == 'Dog')/numel(YValidation)
 
 % Reset images to normal
 
@@ -117,5 +121,4 @@ validation_accuracy = sum(YPred_Validation == YValidation)/numel(YValidation)
 %     % Write to the location 
 %     imwrite(img,info.Filename);
 % end
-
-imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
+% imdsTrain = imageDatastore(directory,'IncludeSubfolders',true,'FileExtensions','.jpg', 'LabelSource', 'foldernames');
